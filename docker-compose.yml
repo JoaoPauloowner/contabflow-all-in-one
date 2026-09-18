@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: contabflow_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-contabflow_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contabflow_pass123}
+      POSTGRES_DB: ${POSTGRES_DB:-contabflow_all_in_one_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contabflow_user -d contabflow_all_in_one_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  whatsapp-bridge:
+    build:
+      context: ./whatsapp-bridge
+      dockerfile: Dockerfile
+    container_name: contabflow_whatsapp_bridge
+    restart: unless-stopped
+    environment:
+      PORT: 8085
+      WEBHOOK_TARGET_URL: http://backend:8000/api/v1/webhooks/whatsapp
+      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET:-webhook_secret_seguro_2026}
+    ports:
+      - "8085:8085"
+    volumes:
+      - baileys_auth:/app/auth_info_baileys
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: contabflow_backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-contabflow_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-contabflow_pass123}
+      POSTGRES_DB: ${POSTGRES_DB:-contabflow_all_in_one_db}
+      SECRET_KEY: ${SECRET_KEY:-contabflow_all_in_one_master_jwt_secret_2026}
+      WHATSAPP_BRIDGE_URL: http://whatsapp-bridge:8085
+      WHATSAPP_WEBHOOK_SECRET: ${WHATSAPP_WEBHOOK_SECRET:-webhook_secret_seguro_2026}
+      AI_PROVIDER: ${AI_PROVIDER:-openai}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o}
+      UPLOAD_DIR: /app/uploads
+      MOCK_NOTIFICATIONS: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      whatsapp-bridge:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: contabflow_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  baileys_auth:
+  uploads_data:
