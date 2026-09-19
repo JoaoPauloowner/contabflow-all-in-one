@@ -148,21 +148,40 @@ async def receber_webhook_whatsapp(
     if not remetente_raw:
         return WebhookResponse(message="Payload sem remetente identificado")
 
-    logger.info(f"Dados extraídos: remetente={remetente_raw}, tipo={tipo_midia}, texto='{texto_mensagem}', arquivo='{file_name}'")
+    # 1.1 Filtragem rígida de eventos de sistema, grupos e broadcasts
+    if "@broadcast" in remetente_raw or "@g.us" in remetente_raw:
+        logger.info(f"Ignorando evento de broadcast ou grupo: {remetente_raw}")
+        return WebhookResponse(message="Evento de broadcast ou grupo ignorado")
+
+    if key.get("fromMe") or (isinstance(dados, dict) and dados.get("fromMe")):
+        logger.info("Ignorando mensagem enviada pelo próprio escritório (fromMe)")
+        return WebhookResponse(message="Mensagem do próprio aparelho ignorada")
+
+    # Ignora eventos sem conteúdo de mensagem real
+    if not (texto_mensagem and texto_mensagem.strip()) and not media_url:
+        logger.info("Evento sem texto ou arquivo de mídia (digitação, recibo, etc). Ignorado.")
+        return WebhookResponse(message="Evento sem mensagem ignorado")
+
+    tel_limpo = WhatsAppService.normalizar_telefone(remetente_raw)
+    # LIDs do WhatsApp possuem 15+ dígitos e não são números E.164 de telefonia
+    if not tel_limpo or len(tel_limpo) < 10 or len(tel_limpo) > 14:
+        logger.info(f"Identificador não é um telefone de cliente válido (LID/Sistema): {remetente_raw}")
+        return WebhookResponse(message="Identificador ignorado (não é telefone válido)")
+
+    logger.info(f"Dados extraídos: remetente={remetente_raw}, tel={tel_limpo}, tipo={tipo_midia}, texto='{texto_mensagem}', arquivo='{file_name}'")
 
     # 2. Resolução do Cliente e Tenant via WhatsAppService
-    resultado = WhatsAppService.resolver_cliente_por_telefone(db, remetente_raw)
+    resultado = WhatsAppService.resolver_cliente_por_telefone(db, tel_limpo)
     if not resultado:
-        logger.info(f"Telefone {remetente_raw} não cadastrado. Criando contato automático para não perder mensagem.")
+        logger.info(f"Telefone {tel_limpo} não cadastrado. Criando contato automático para não perder mensagem.")
         escritorio = db.query(Escritorio).first()
         if not escritorio:
-            logger.warning(f"Telefone {remetente_raw} não pertence a nenhum cliente e não há escritório cadastrado.")
+            logger.warning(f"Telefone {tel_limpo} não pertence a nenhum cliente e não há escritório cadastrado.")
             return WebhookResponse(
                 message="Mensagem recebida de número desconhecido e sem escritório cadastrado",
                 cliente_identificado=False,
             )
-        tel_limpo = WhatsAppService.normalizar_telefone(remetente_raw) or remetente_raw
-        sufixo = tel_limpo[-8:] if len(tel_limpo) >= 8 else tel_limpo
+        sufixo = tel_limpo[-8:]
         novo_cliente = Cliente(
             tenant_id=escritorio.id,
             razao_social=f"WhatsApp ({sufixo})",
@@ -179,6 +198,7 @@ async def receber_webhook_whatsapp(
         tenant_id, cliente_id, cliente = (escritorio.id, novo_cliente.id, novo_cliente)
     else:
         tenant_id, cliente_id, cliente = resultado
+
 
     # 3. Registra histórico da mensagem recebida
     WhatsAppService.registrar_mensagem(

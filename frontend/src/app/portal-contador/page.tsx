@@ -247,7 +247,23 @@ export default function PortalContadorPage() {
     usuario_senha: "",
   });
 
+  // Modal 1.1: Ficha e Edição de Cliente
+  const [clienteFicha, setClienteFicha] = useState<ClienteItem | null>(null);
+  const [modalFichaClienteAberto, setModalFichaClienteAberto] = useState(false);
+  const [salvandoEdicaoCliente, setSalvandoEdicaoCliente] = useState(false);
+  const [excluindoCliente, setExcluindoCliente] = useState(false);
+  const [formEdicaoCliente, setFormEdicaoCliente] = useState({
+    razao_social: "",
+    nome_fantasia: "",
+    cnpj_cpf: "",
+    email: "",
+    telefone_whatsapp: "",
+    regime_tributario: "SIMPLES_NACIONAL",
+    ativo: true,
+  });
+
   // Modal 2: Novo Chamado
+
   const [modalNovoChamadoAberto, setModalNovoChamadoAberto] = useState(false);
   const [salvandoChamado, setSalvandoChamado] = useState(false);
   const [formChamado, setFormChamado] = useState({
@@ -708,7 +724,78 @@ export default function PortalContadorPage() {
     }
   };
 
+  const abrirFichaCliente = (c: ClienteItem) => {
+    setClienteFicha(c);
+    setFormEdicaoCliente({
+      razao_social: c.razao_social,
+      nome_fantasia: c.nome_fantasia || "",
+      cnpj_cpf: c.cnpj_cpf,
+      email: c.email,
+      telefone_whatsapp: c.telefone_whatsapp,
+      regime_tributario: c.regime_tributario,
+      ativo: c.ativo,
+    });
+    setModalFichaClienteAberto(true);
+  };
+
+  const handleSalvarEdicaoCliente = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clienteFicha) return;
+    setSalvandoEdicaoCliente(true);
+    try {
+      const res = await fetchWithAuth(`/api/v1/clientes/${clienteFicha.id}`, {
+        method: "PUT",
+        body: JSON.stringify(formEdicaoCliente),
+      });
+      if (!res.ok) {
+        const erro = await res.json();
+        throw new Error(erro.detail || "Erro ao atualizar dados do cliente.");
+      }
+      const clienteAtualizado = await res.json();
+      setNotificacao(`✅ Dados da empresa "${clienteAtualizado.razao_social}" atualizados!`);
+      setClientes((prev) => prev.map((c) => (c.id === clienteAtualizado.id ? clienteAtualizado : c)));
+      setModalFichaClienteAberto(false);
+      setClienteFicha(null);
+    } catch (err: any) {
+      alert(err.message || "Erro ao atualizar cliente.");
+    } finally {
+      setSalvandoEdicaoCliente(false);
+      setTimeout(() => setNotificacao(null), 6000);
+    }
+  };
+
+  const handleExcluirCliente = async () => {
+    if (!clienteFicha) return;
+    if (!confirm(`Deseja realmente remover o cliente "${clienteFicha.razao_social}" do sistema?`)) {
+      return;
+    }
+    setExcluindoCliente(true);
+    try {
+      const res = await fetchWithAuth(`/api/v1/clientes/${clienteFicha.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        let msg = "Erro ao excluir cliente.";
+        try {
+          const erro = await res.json();
+          msg = erro.detail || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+      setNotificacao(`🗑️ Cliente "${clienteFicha.razao_social}" removido com sucesso.`);
+      setClientes((prev) => prev.filter((c) => c.id !== clienteFicha.id));
+      setModalFichaClienteAberto(false);
+      setClienteFicha(null);
+    } catch (err: any) {
+      alert(err.message || "Erro ao remover cliente.");
+    } finally {
+      setExcluindoCliente(false);
+      setTimeout(() => setNotificacao(null), 6000);
+    }
+  };
+
   const handleCriarChamado = async (e: React.FormEvent) => {
+
     e.preventDefault();
     setSalvandoChamado(true);
     try {
@@ -1765,17 +1852,25 @@ export default function PortalContadorPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {clientes.map((c) => (
-                        <tr key={c.id} className="hover:bg-slate-800/30 transition">
-                          <td className="py-4 px-6 font-semibold text-white">
-                            {c.razao_social}
-                            {c.nome_fantasia && (
-                              <span className="block text-[11px] font-normal text-slate-400">
-                                {c.nome_fantasia}
-                              </span>
-                            )}
+                        <tr
+                          key={c.id}
+                          onClick={() => abrirFichaCliente(c)}
+                          className="hover:bg-slate-800/60 transition cursor-pointer group"
+                        >
+                          <td className="py-4 px-6 font-semibold text-white group-hover:text-blue-300 transition">
+                            <div className="flex items-center gap-2">
+                              <div>
+                                <span>{c.razao_social}</span>
+                                {c.nome_fantasia && (
+                                  <span className="block text-[11px] font-normal text-slate-400">
+                                    {c.nome_fantasia}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="py-4 px-6 font-mono text-slate-300">{c.cnpj_cpf}</td>
-                          <td className="py-4 px-6 font-mono text-emerald-400">{c.telefone_whatsapp}</td>
+                          <td className="py-4 px-6 font-mono text-emerald-400 font-semibold">{c.telefone_whatsapp}</td>
                           <td className="py-4 px-6">
                             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700">
                               {c.regime_tributario.replace("_", " ")}
@@ -1787,10 +1882,16 @@ export default function PortalContadorPage() {
                             </span>
                           </td>
                           <td className="py-4 px-6 text-right text-slate-400 font-mono">
-                            {new Date(c.created_at).toLocaleDateString("pt-BR")}
+                            <div className="flex items-center justify-end gap-2">
+                              <span>{new Date(c.created_at).toLocaleDateString("pt-BR")}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-lg bg-slate-800 group-hover:bg-blue-600 group-hover:text-white transition text-slate-400 border border-slate-700/60">
+                                Editar
+                              </span>
+                            </div>
                           </td>
                         </tr>
                       ))}
+
                     </tbody>
                   </table>
                 </div>
@@ -3402,6 +3503,162 @@ export default function PortalContadorPage() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
+      {/* MODAL 1.1: FICHA E EDIÇÃO DO CLIENTE                      */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {modalFichaClienteAberto && clienteFicha && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl max-w-xl w-full space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Ficha da Empresa / Cliente</h3>
+                  <p className="text-[10px] text-slate-400">Edição cadastral e gerenciamento do contato</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalFichaClienteAberto(false)}
+                className="text-slate-400 hover:text-white p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarEdicaoCliente} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
+                    Razão Social *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formEdicaoCliente.razao_social}
+                    onChange={(e) => setFormEdicaoCliente({ ...formEdicaoCliente, razao_social: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-white rounded-xl p-2.5 outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
+                    Nome Fantasia
+                  </label>
+                  <input
+                    type="text"
+                    value={formEdicaoCliente.nome_fantasia}
+                    onChange={(e) => setFormEdicaoCliente({ ...formEdicaoCliente, nome_fantasia: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-white rounded-xl p-2.5 outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
+                    CNPJ ou CPF *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formEdicaoCliente.cnpj_cpf}
+                    onChange={(e) => setFormEdicaoCliente({ ...formEdicaoCliente, cnpj_cpf: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-white rounded-xl p-2.5 outline-none focus:border-blue-500 font-mono transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
+                    Telefone WhatsApp *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formEdicaoCliente.telefone_whatsapp}
+                    onChange={(e) => setFormEdicaoCliente({ ...formEdicaoCliente, telefone_whatsapp: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-emerald-400 rounded-xl p-2.5 outline-none focus:border-emerald-500 font-mono transition"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
+                    E-mail de Contato *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={formEdicaoCliente.email}
+                    onChange={(e) => setFormEdicaoCliente({ ...formEdicaoCliente, email: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-white rounded-xl p-2.5 outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
+                    Regime Tributário
+                  </label>
+                  <select
+                    value={formEdicaoCliente.regime_tributario}
+                    onChange={(e) => setFormEdicaoCliente({ ...formEdicaoCliente, regime_tributario: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-white rounded-xl p-2.5 outline-none focus:border-blue-500 transition"
+                  >
+                    <option value="SIMPLES_NACIONAL">Simples Nacional</option>
+                    <option value="LUCRO_PRESUMIDO">Lucro Presumido</option>
+                    <option value="LUCRO_REAL">Lucro Real</option>
+                    <option value="MEI">MEI (Microempreendedor Individual)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Barra de Ações Rápidas */}
+              <div className="pt-3 flex items-center justify-between border-t border-slate-800">
+                <div className="flex items-center gap-2">
+                  <a
+                    href={`https://wa.me/${formEdicaoCliente.telefone_whatsapp.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1.5"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={handleExcluirCliente}
+                    disabled={excluindoCliente}
+                    className="px-3 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{excluindoCliente ? "Excluindo..." : "Excluir Cliente"}</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModalFichaClienteAberto(false)}
+                    className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoEdicaoCliente}
+                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-lg shadow-blue-600/20 transition cursor-pointer disabled:opacity-50"
+                  >
+                    {salvandoEdicaoCliente ? "Salvando..." : "Salvar Alterações"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+
       {/* MODAL 2: ABRIR NOVO CHAMADO (HELPDESK) */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {modalNovoChamadoAberto && (

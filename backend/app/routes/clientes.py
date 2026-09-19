@@ -104,3 +104,59 @@ def get_cliente(
             detail="Cliente não encontrado.",
         )
     return cliente
+
+
+@router.put("/{cliente_id}", response_model=ClienteResponse)
+def update_cliente(
+    cliente_id: str,
+    data: ClienteUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_contador),
+) -> Any:
+    """Atualiza dados de um cliente."""
+    cliente = (
+        db.query(Cliente)
+        .filter(
+            Cliente.id == cliente_id,
+            Cliente.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
+    if not cliente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cliente não encontrado.",
+        )
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(cliente, field, value)
+
+    db.commit()
+    db.refresh(cliente)
+    return cliente
+
+
+@router.delete("/{cliente_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cliente(
+    cliente_id: str,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_contador),
+) -> None:
+    """Exclui um cliente do escritório."""
+    cliente = (
+        db.query(Cliente)
+        .filter(
+            Cliente.id == cliente_id,
+            Cliente.tenant_id == current_user.tenant_id,
+        )
+        .first()
+    )
+    if not cliente:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Cliente não encontrado.",
+        )
+    db.delete(cliente)
+    db.commit()
+    return None
+
