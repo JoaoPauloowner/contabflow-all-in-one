@@ -1082,26 +1082,27 @@ export default function PortalContadorPage() {
               </span>
             </button>
 
-            {/* Item 5: Badge de Status do WhatsApp (Desconectado / Conectado) */}
+            {/* Item 5: Badge e Botao de Conexao Direta do WhatsApp */}
             <button
-              onClick={() => setAbaAtiva("whatsapp")}
-              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
-                abaAtiva === "whatsapp"
-                  ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
-                  : "text-slate-400 hover:text-white"
+              onClick={() => setModalQrAberto(true)}
+              className={`px-3.5 py-1.5 rounded-xl transition flex items-center gap-2 cursor-pointer border ${
+                whatsappStatus.isConnected
+                  ? "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                  : "bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border-rose-500/30 animate-pulse"
               }`}
+              title={whatsappStatus.isConnected ? "WhatsApp Conectado - Clique para detalhes" : "WhatsApp Desconectado - Clique para Conectar"}
             >
               <Phone className="w-3.5 h-3.5" />
-              <span>WhatsApp Bridge</span>
+              <span className="font-semibold">WhatsApp</span>
               {whatsappStatus.isConnected ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   Conectado {whatsappStatus.userPhone ? `(+${whatsappStatus.userPhone})` : ""}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/25">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                  Desconectado
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                  Conectar
                 </span>
               )}
             </button>
@@ -4138,16 +4139,27 @@ export default function PortalContadorPage() {
                   )}
                 </div>
 
-                <p className="text-[11px] text-slate-400">
-                  Ou acesse diretamente:{" "}
-                  <a
-                    href="http://localhost:8085"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-emerald-400 hover:underline font-semibold"
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/v1/whatsapp/status");
+                        if (res.ok) {
+                          const data = await res.json();
+                          setWhatsappStatus(data);
+                        }
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-[11px] text-emerald-400 font-medium transition flex items-center gap-1.5 cursor-pointer border border-slate-700"
                   >
-                    http://localhost:8085
-                  </a>
+                    <RefreshCw className="w-3 h-3" />
+                    <span>Atualizar QR Code</span>
+                  </button>
+                </div>
+
+                <p className="text-[11px] text-slate-400">
+                  ⚡ Conexão direta em nuvem com persistência automática de sessão.
                 </p>
 
                 <div className="pt-2">
@@ -4158,6 +4170,7 @@ export default function PortalContadorPage() {
                     Fechar
                   </button>
                 </div>
+
               </div>
             )}
           </div>
