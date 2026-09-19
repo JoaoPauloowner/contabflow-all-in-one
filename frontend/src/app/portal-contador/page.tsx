@@ -1142,7 +1142,7 @@ export default function PortalContadorPage() {
           </button>
 
           <button
-            onClick={carregarDados}
+            onClick={() => carregarDados()}
             className="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
             title="Atualizar Dados"
           >
@@ -1828,7 +1828,7 @@ export default function PortalContadorPage() {
                   <span>Nova Regra / Artigo</span>
                 </button>
                 <button
-                  onClick={carregarDados}
+                  onClick={() => carregarDados()}
                   className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
                   title="Atualizar Base"
                 >
@@ -2514,7 +2514,7 @@ export default function PortalContadorPage() {
                   <span>Novo Upload Manual</span>
                 </button>
                 <button
-                  onClick={carregarDados}
+                  onClick={() => carregarDados()}
                   className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
                   title="Atualizar Fila"
                 >
