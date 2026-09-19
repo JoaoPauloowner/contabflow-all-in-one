@@ -528,10 +528,10 @@ export default function PortalContadorPage() {
     setUser(storedUser);
     carregarDados();
 
-    // Polling contínuo do status do microserviço WhatsApp Bridge
+    // Polling contínuo do status do microserviço WhatsApp Bridge / Evolution API
     const checarStatusWhatsApp = async () => {
       try {
-        const res = await fetch("http://localhost:8085/status");
+        const res = await fetch("/api/v1/whatsapp/status");
         if (res.ok) {
           const data = await res.json();
           setWhatsappStatus(data);

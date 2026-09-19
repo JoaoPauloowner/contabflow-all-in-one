@@ -124,8 +124,12 @@ class WhatsAppService:
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                url = f"{settings.WHATSAPP_BRIDGE_URL}/message/sendText"
+                inst = getattr(settings, "WHATSAPP_INSTANCE_NAME", "contabflow_instance")
+                url = f"{settings.WHATSAPP_BRIDGE_URL}/message/sendText/{inst}"
                 resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code == 404:
+                    url_flat = f"{settings.WHATSAPP_BRIDGE_URL}/message/sendText"
+                    resp = await client.post(url_flat, json=payload, headers=headers)
                 if resp.status_code in (200, 201):
                     data = resp.json()
                     msg_id = data.get("key", {}).get("id") or data.get("messageId")

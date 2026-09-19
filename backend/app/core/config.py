@@ -41,6 +41,7 @@ class Settings(BaseSettings):
 
     # WhatsApp Bridge (Baileys / Evolution API)
     WHATSAPP_BRIDGE_URL: str = os.getenv("WHATSAPP_BRIDGE_URL", "http://localhost:8085")
+    WHATSAPP_INSTANCE_NAME: str = os.getenv("WHATSAPP_INSTANCE_NAME", "contabflow_instance")
     WHATSAPP_WEBHOOK_SECRET: str = os.getenv("WHATSAPP_WEBHOOK_SECRET", "webhook_secret_seguro_2026")
     MOCK_NOTIFICATIONS: bool = os.getenv("MOCK_NOTIFICATIONS", "false").lower() in ("true", "1")
 

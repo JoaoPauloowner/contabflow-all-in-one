@@ -10,9 +10,11 @@ from app.routes import (
     dashboard,
     tarefas,
     conhecimento,
+    whatsapp,
 )
 
 api_router = APIRouter()
+api_router.include_router(whatsapp.router)
 
 # 1. Autenticação e Gestão de Usuários
 api_router.include_router(auth.router)
